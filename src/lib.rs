@@ -1,11 +1,13 @@
 #![feature(bufreader_buffer)]
 
+extern crate cast;
 #[macro_use]
 extern crate failure;
 extern crate httparse;
 #[macro_use]
 extern crate log;
 extern crate net2;
+extern crate result;
 
 mod client;
 mod req;
@@ -33,6 +35,7 @@ pub trait HttpRequestHandler: Send {
         match client.method().as_str() {
             "GET" => self.do_get(client),
             "HEAD" => self.do_head(client),
+            "POST" => self.do_post(client),
             _ => {
                 client.set_response(405, "Method Not Allowed")?;
                 Ok(())
@@ -43,7 +46,12 @@ pub trait HttpRequestHandler: Send {
     fn do_get(&mut self, client: &mut Client) -> Result<(), Error> {
         client.set_response(405, "Method Not Allowed")
     }
+
     fn do_head(&mut self, client: &mut Client) -> Result<(), Error> {
+        client.set_response(405, "Method Not Allowed")
+    }
+
+    fn do_post(&mut self, client: &mut Client) -> Result<(), Error> {
         client.set_response(405, "Method Not Allowed")
     }
 }

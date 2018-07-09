@@ -1,11 +1,15 @@
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::net;
+use std::num;
 
+use cast::u64;
 use failure::Error;
 use failure::ResultExt;
 use httparse;
 use httparse::EMPTY_HEADER;
+use result::ResultOptionExt;
 
 use req;
 
@@ -94,6 +98,43 @@ impl Client {
         Ok(())
     }
 
+    pub fn request_header<S: AsRef<str>>(&self, name: S) -> Option<String> {
+        let mut ret: Option<String> = None;
+        let name = name.as_ref();
+        for (key, value) in &self.requested.headers {
+            if !key.eq_ignore_ascii_case(name) {
+                continue;
+            }
+
+            // TODO: hmm
+            ret = match ret {
+                Some(mut existing) => {
+                    existing.push_str(", ");
+                    existing.push_str(&value);
+                    Some(existing)
+                }
+                None => Some(value.to_string()),
+            };
+        }
+
+        ret
+    }
+
+    pub fn content_length(&self) -> Result<Option<usize>, num::ParseIntError> {
+        self.request_header("Content-Length")
+            .map(|len| len.parse())
+            .invert()
+    }
+
+    pub fn body_reader<'a>(&'a mut self) -> Result<BodyReader<'a>, Error> {
+        let len = self
+            .content_length()?
+            .ok_or_else(|| format_err!("no content length"))?;
+        Ok(BodyReader {
+            inner: self.take(u64(len)),
+        })
+    }
+
     fn send_response_if_not_already_sent(&mut self) -> io::Result<()> {
         if self.response_sent() {
             return Ok(());
@@ -114,6 +155,33 @@ impl Client {
         write!(self.stream, "Connection: close\r\n\r\n")?;
         info!("{}: sent {}", self.addr, self.response.code);
         Ok(())
+    }
+}
+
+pub struct BodyReader<'c> {
+    inner: io::Take<&'c mut Client>,
+}
+
+impl<'c> Read for BodyReader<'c> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl Read for Client {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        if self.requested.body_start.is_empty() {
+            return self.stream.read(buf);
+        }
+
+        let to_reply = buf.len().min(self.requested.body_start.len());
+        buf.copy_from_slice(&self.requested.body_start[..to_reply]);
+        let _ = self.requested.body_start.drain(..to_reply);
+        Ok(to_reply)
     }
 }
 
