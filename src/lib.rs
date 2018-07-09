@@ -18,7 +18,7 @@ use std::thread;
 use failure::Error;
 use failure::ResultExt;
 
-pub trait HttpRequestHandler: Clone + Send {
+pub trait HttpRequestHandler: Send {
     fn before(
         &mut self,
         stream: &mut net::TcpStream,
@@ -149,8 +149,9 @@ impl Client {
     }
 }
 
-pub fn serve<H>(port: u16, handler: H) -> Result<(), Error>
+pub fn serve<F, H>(port: u16, mut handler: F) -> Result<(), Error>
 where
+    F: FnMut(&net::SocketAddr) -> H,
     H: HttpRequestHandler + panic::UnwindSafe + 'static,
 {
     let listen = net2::TcpBuilder::new_v4()?
@@ -163,7 +164,7 @@ where
     loop {
         let (stream, addr) = listen.accept()?;
 
-        let handler = handler.clone();
+        let handler = handler(&addr);
         thread::spawn(move || {
             if let Err(e) = panic::catch_unwind(move || {
                 if let Err(e) = handle(stream, addr, handler) {

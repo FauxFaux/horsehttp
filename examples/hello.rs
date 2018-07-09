@@ -9,7 +9,6 @@ use failure::Error;
 use worsehttp::Client;
 use worsehttp::HttpRequestHandler;
 
-#[derive(Clone)]
 struct Handler {}
 
 impl HttpRequestHandler for Handler {
@@ -33,5 +32,5 @@ fn main() -> Result<(), Error> {
     pretty_env_logger::formatted_builder()?
         .filter_level(log::LevelFilter::Debug)
         .init();
-    worsehttp::serve(1337, Handler {})
+    worsehttp::serve(1337, |_| Handler {})
 }
