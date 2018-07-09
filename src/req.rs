@@ -14,7 +14,7 @@ pub fn read_headers<R: Read>(mut from: R) -> Result<(Vec<u8>, Vec<u8>, usize), E
     loop {
         from.read_until(b'\n', &mut ret)?;
         lines += 1;
-        assert!(ret.ends_with(b"\n"));
+        ensure!(ret.ends_with(b"\n"), "eof reading headers");
         if ret.ends_with(b"\n\r\n") || ret.ends_with(b"\n\n") {
             break;
         }
