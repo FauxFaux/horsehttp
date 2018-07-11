@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate failure;
+#[macro_use]
 extern crate log;
 extern crate mime;
 extern crate multipart;
@@ -48,12 +49,17 @@ impl HttpRequestHandler for Handler {
                                 .as_ref(),
                         );
 
-                        while let Some(entry) = multipass.read_entry()? {
-                            println!("{:?}", entry.headers.content_type);
+                        while let Some(mut entry) = multipass.read_entry()? {
+                            info!(
+                                "form entry named {:?} of type {:?}",
+                                entry.headers.name, entry.headers.content_type
+                            );
                             if let Some(name) = entry.headers.filename {
-                                println!("file: {}", name);
+                                info!(" - file client names: {:?}", name);
                             } else {
-                                println!("???: ");
+                                let mut buf = Vec::new();
+                                entry.data.read_to_end(&mut buf)?;
+                                info!(" - unparsed body: {:?}", String::from_utf8_lossy(&buf));
                             }
                         }
                     }
@@ -77,7 +83,7 @@ impl HttpRequestHandler for Handler {
 
 fn main() -> Result<(), Error> {
     pretty_env_logger::formatted_builder()?
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(log::LevelFilter::Info)
         .init();
     worsehttp::serve(1337, |_| Handler {})
 }
