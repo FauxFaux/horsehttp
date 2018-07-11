@@ -1,5 +1,8 @@
+#[macro_use]
 extern crate failure;
 extern crate log;
+extern crate mime;
+extern crate multipart;
 extern crate pretty_env_logger;
 extern crate worsehttp;
 
@@ -31,9 +34,36 @@ impl HttpRequestHandler for Handler {
     fn do_post(&mut self, client: &mut Client) -> Result<(), Error> {
         match client.path().as_str() {
             "/save" => {
-                let mut body = Vec::new();
-                client.body_reader()?.read_to_end(&mut body)?;
-                writeln!(client, "hello {:?}", String::from_utf8_lossy(&body))?;
+                let content_type: mime::Mime = client
+                    .request_header("Content-Type")
+                    .ok_or_else(|| format_err!("POST must have content type"))?
+                    .parse()?;
+                match (content_type.type_(), content_type.subtype()) {
+                    (mime::MULTIPART, mime::FORM_DATA) => {
+                        let mut multipass = multipart::server::Multipart::with_body(
+                            client.body_reader()?,
+                            content_type
+                                .get_param(mime::BOUNDARY)
+                                .ok_or_else(|| format_err!("form-data but no boudary"))?
+                                .as_ref(),
+                        );
+
+                        while let Some(entry) = multipass.read_entry()? {
+                            println!("{:?}", entry.headers.content_type);
+                            if let Some(name) = entry.headers.filename {
+                                println!("file: {}", name);
+                            } else {
+                                println!("???: ");
+                            }
+                        }
+                    }
+                    other => {
+                        println!("unknown content type: {:?}", other);
+                        let mut body = Vec::new();
+                        client.body_reader()?.read_to_end(&mut body)?;
+                        writeln!(client, "hello {:?}", String::from_utf8_lossy(&body))?;
+                    }
+                }
             }
             other => {
                 client.set_response(404, "Not Found")?;

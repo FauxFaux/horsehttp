@@ -6,6 +6,7 @@ extern crate failure;
 extern crate httparse;
 #[macro_use]
 extern crate log;
+extern crate mime;
 extern crate net2;
 extern crate result;
 

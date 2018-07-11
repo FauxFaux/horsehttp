@@ -8,8 +8,14 @@ cast = "0.2"
 failure = "0.1"
 httparse = "1"
 log = "0.4"
+mime = "0.3"
 net2 = "0.2"
 result = "1"
+
+[dependencies.multipart]
+version = "0.15"
+default-features = false
+features = ["server"]
 
 [dev-dependencies]
 pretty_env_logger = "0.2"
