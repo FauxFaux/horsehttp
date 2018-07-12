@@ -7,6 +7,7 @@ extern crate httparse;
 #[macro_use]
 extern crate log;
 extern crate mime;
+extern crate multipart;
 extern crate net2;
 extern crate result;
 
@@ -20,6 +21,7 @@ use std::thread;
 
 use failure::Error;
 
+pub use client::BodyParser;
 pub use client::Client;
 
 pub trait HttpRequestHandler: Send {

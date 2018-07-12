@@ -9,6 +9,10 @@ use failure::Error;
 use failure::ResultExt;
 use httparse;
 use httparse::EMPTY_HEADER;
+use mime;
+use multipart::server::Multipart;
+use multipart::server::MultipartData;
+use multipart::server::MultipartField;
 use result::ResultOptionExt;
 
 use req;
@@ -135,6 +139,25 @@ impl Client {
         })
     }
 
+    pub fn body_parser(&mut self) -> Result<BodyParser, Error> {
+        let content_type: mime::Mime = self
+            .request_header("Content-Type")
+            .ok_or_else(|| format_err!("POST must have content type"))?
+            .parse()?;
+        Ok(match (content_type.type_(), content_type.subtype()) {
+            (mime::MULTIPART, mime::FORM_DATA) => {
+                BodyParser::Form(Form::new(Multipart::with_body(
+                    self.body_reader()?,
+                    content_type
+                        .get_param(mime::BOUNDARY)
+                        .ok_or_else(|| format_err!("form-data but no boundary"))?
+                        .as_ref(),
+                )))
+            }
+            _ => BodyParser::Unknown(content_type, self.body_reader()?),
+        })
+    }
+
     fn send_response_if_not_already_sent(&mut self) -> io::Result<()> {
         if self.response_sent() {
             return Ok(());
@@ -154,6 +177,57 @@ impl Client {
         // TODO: headers
         write!(self.stream, "Connection: close\r\n\r\n")?;
         info!("{}: sent {}", self.addr, self.response.code);
+        Ok(())
+    }
+}
+
+pub enum BodyParser<'c> {
+    Form(Form<'c>),
+    Unknown(mime::Mime, BodyReader<'c>),
+}
+
+pub struct Form<'c> {
+    multipass: Multipart<BodyReader<'c>>,
+}
+
+pub struct FormField<'c: 'f, 'f> {
+    inner: MultipartField<&'f mut Multipart<BodyReader<'c>>>,
+}
+
+impl<'c: 'f, 'f> FormField<'c, 'f> {
+    pub fn name(&self) -> String {
+        self.inner.headers.name.to_string()
+    }
+
+    pub fn content_type(&self) -> Option<String> {
+        self.inner
+            .headers
+            .content_type
+            .as_ref()
+            .map(|m| format!("{}", m))
+    }
+
+    pub fn filename(&self) -> Option<String> {
+        self.inner.headers.filename.clone()
+    }
+
+    pub fn data(&mut self) -> &mut MultipartData<&'f mut Multipart<BodyReader<'c>>> {
+        &mut self.inner.data
+    }
+}
+
+impl<'c> Form<'c> {
+    fn new(multipass: Multipart<BodyReader<'c>>) -> Form<'c> {
+        Form { multipass }
+    }
+
+    pub fn all<F>(&mut self, mut callback: F) -> Result<(), Error>
+    where
+        F: FnMut(FormField) -> Result<(), Error>,
+    {
+        while let Some(inner) = self.multipass.read_entry()? {
+            callback(FormField { inner })?;
+        }
         Ok(())
     }
 }
