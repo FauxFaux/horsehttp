@@ -199,12 +199,16 @@ impl<'c: 'f, 'f> FormField<'c, 'f> {
         self.inner.headers.name.to_string()
     }
 
-    pub fn content_type(&self) -> Option<String> {
+    pub fn content_type(&self) -> Option<mime::Mime> {
         self.inner
             .headers
             .content_type
             .as_ref()
-            .map(|m| format!("{}", m))
+            // TODO: this is caused by multipart 0.15 using mime 0.2, 'cos hyper.
+            // TODO: shouldn't need to go via a string and parse if they fix that,
+            // TODO: or we downgrade mime. Downgrading mime isn't great, as the name
+            // TODO: of everything has changed. Also, it's the future.
+            .and_then(|m| m.to_string().parse().ok())
     }
 
     pub fn filename(&self) -> Option<String> {
