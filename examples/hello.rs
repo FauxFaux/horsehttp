@@ -4,7 +4,6 @@ extern crate horsehttp;
 #[macro_use]
 extern crate log;
 extern crate mime;
-extern crate multipart;
 extern crate pretty_env_logger;
 
 use std::io::Read;
