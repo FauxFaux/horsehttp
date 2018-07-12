@@ -105,23 +105,17 @@ impl Client {
     pub fn request_header<S: AsRef<str>>(&self, name: S) -> Option<String> {
         let mut ret: Option<String> = None;
         let name = name.as_ref();
-        for (key, value) in &self.requested.headers {
-            if !key.eq_ignore_ascii_case(name) {
-                continue;
-            }
-
-            // TODO: hmm
-            ret = match ret {
-                Some(mut existing) => {
-                    existing.push_str(", ");
-                    existing.push_str(&value);
-                    Some(existing)
-                }
-                None => Some(value.to_string()),
-            };
+        match self
+            .requested
+            .headers
+            .iter()
+            .filter(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, val)| val.to_string())
+            .collect::<Vec<String>>()
+        {
+            ref v if v.is_empty() => None,
+            v => Some(v.join(", ")),
         }
-
-        ret
     }
 
     pub fn content_length(&self) -> Result<Option<usize>, num::ParseIntError> {
