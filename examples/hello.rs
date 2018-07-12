@@ -1,18 +1,18 @@
 #[macro_use]
 extern crate failure;
+extern crate horsehttp;
 #[macro_use]
 extern crate log;
 extern crate mime;
 extern crate multipart;
 extern crate pretty_env_logger;
-extern crate worsehttp;
 
 use std::io::Read;
 use std::io::Write;
 
 use failure::Error;
-use worsehttp::Client;
-use worsehttp::HttpRequestHandler;
+use horsehttp::Client;
+use horsehttp::HttpRequestHandler;
 
 struct Handler {}
 
@@ -85,5 +85,5 @@ fn main() -> Result<(), Error> {
     pretty_env_logger::formatted_builder()?
         .filter_level(log::LevelFilter::Info)
         .init();
-    worsehttp::serve(1337, |_| Handler {})
+    horsehttp::serve(1337, |_| Handler {})
 }
