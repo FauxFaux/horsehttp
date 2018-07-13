@@ -3,6 +3,7 @@ use std::io::Read;
 use std::io::Write;
 use std::net;
 use std::num;
+use std::panic;
 
 use cast::u64;
 use failure::Error;
@@ -47,6 +48,8 @@ impl Default for Response {
         }
     }
 }
+
+impl panic::UnwindSafe for Client {}
 
 impl Client {
     pub(crate) fn new(

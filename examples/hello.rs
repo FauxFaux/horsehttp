@@ -23,7 +23,7 @@ impl HttpRequestHandler for Handler {
                 let whom = client.addr();
                 writeln!(client, "hello {} on port {}", whom.ip(), whom.port())?;
             }
-            "/panic" => panic!("can do!"),
+            "/panic" => panic!("can do, {}", client.addr()),
             other => {
                 client.set_response(404, "Not Found")?;
                 writeln!(client, "I don't recognise the url {}\n", other)?;

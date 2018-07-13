@@ -26,7 +26,7 @@ use failure::Error;
 pub use client::BodyParser;
 pub use client::Client;
 
-pub trait HttpRequestHandler: Send {
+pub trait HttpRequestHandler: Send + panic::UnwindSafe {
     fn before(
         &mut self,
         _stream: &mut net::TcpStream,
@@ -116,10 +116,27 @@ fn handle(
 
     let mut client = Client::new(requested, addr, stream);
 
-    let status = handler.handle(&mut client);
+    let status = {
+        // TODO: Not sure about this `AssertUnwindSafe`; we're asserting that the `&mut` is valid,
+        // TODO: as `Client` itself already is. Code using `Client` after this point should probably
+        // TODO: be careful. But, also, what's going to happen? It's not unsafe, the worst is
+        // TODO: presumably a further panic, which we'll see in the upper error handling anyway.
+        let unwind_client = panic::AssertUnwindSafe(&mut client);
+        match panic::catch_unwind(move || handler.handle(unwind_client.0)) {
+            Ok(Ok(())) => None,
+            Ok(Err(err)) => Some(err),
+            Err(any) => Some(format_err!(
+                "panic: {}",
+                any.downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| any.downcast_ref::<String>().map(|s| s.to_string()))
+                    .unwrap_or_else(|| "Box<Any>".to_string())
+            )),
+        }
+    };
 
     if !client.response_sent() {
-        if let Err(e) = status {
+        if let Some(e) = status {
             error!("{}: returning 500 for: {}", client.addr(), e);
             client.set_response(500, "Internal Server Error")?;
             client.write_all(b"err: internal")?;
@@ -131,7 +148,7 @@ fn handle(
             );
         }
     } else {
-        if let Err(e) = status {
+        if let Some(e) = status {
             error!("{}: error after headers sent: {}", client.addr(), e);
         } else {
             info!(
