@@ -27,7 +27,7 @@ pub use client::Client;
 pub trait HttpRequestHandler: Send {
     fn before(
         &mut self,
-        stream: &mut net::TcpStream,
+        _stream: &mut net::TcpStream,
         addr: &mut net::SocketAddr,
     ) -> Result<(), Error> {
         info!("{}: accepted connection", addr);

@@ -68,9 +68,9 @@ impl Client {
         Ok(())
     }
 
-    pub fn set_response<S: ToString>(&mut self, code: u16, message: S) -> Result<(), Error> {
+    pub fn set_response<S: Into<String>>(&mut self, code: u16, message: S) -> Result<(), Error> {
         ensure!(!self.response_sent(), "response already sent");
-        let message = message.to_string();
+        let message = message.into();
         ensure!(
             !message.contains(|c: char| c.is_ascii_control()),
             "header line shouldn't contain control characters"
@@ -103,7 +103,6 @@ impl Client {
     }
 
     pub fn request_header<S: AsRef<str>>(&self, name: S) -> Option<String> {
-        let mut ret: Option<String> = None;
         let name = name.as_ref();
         match self
             .requested
