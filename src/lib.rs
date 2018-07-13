@@ -13,10 +13,12 @@ extern crate result;
 
 mod client;
 mod req;
+mod semaphore;
 
 use std::io::Write;
 use std::net;
 use std::panic;
+use std::sync::Arc;
 use std::thread;
 
 use failure::Error;
@@ -71,8 +73,13 @@ where
 
     info!("server listening on port {}", port);
 
+    let mut open_connections = Arc::new(semaphore::Semaphore::new(4));
+
     loop {
         let (stream, addr) = listen.accept()?;
+
+        open_connections.acquire();
+        let permits = open_connections.clone();
 
         let handler = handler(&addr);
         thread::spawn(move || {
@@ -83,6 +90,8 @@ where
             }) {
                 error!("fatal error handling request from {}: {:?}", addr, e);
             }
+
+            permits.release();
         });
     }
 }
