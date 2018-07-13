@@ -97,7 +97,11 @@ impl Client {
         self.response.sent
     }
 
-    pub fn unsafe_dirty_write_all(&mut self, buf: &[u8]) -> Result<(), Error> {
+    /// Do a raw write to the client.
+    ///
+    /// If headers haven't been sent, the server won't send them, now or ever.
+    pub fn write_all_overriding_headers(&mut self, buf: &[u8]) -> Result<(), Error> {
+        self.response.sent = true;
         self.stream.write_all(buf)?;
         Ok(())
     }
@@ -218,7 +222,7 @@ impl<'c> Form<'c> {
         Form { multipass }
     }
 
-    pub fn all<F>(&mut self, mut callback: F) -> Result<(), Error>
+    pub fn for_each<F>(&mut self, mut callback: F) -> Result<(), Error>
     where
         F: FnMut(FormField) -> Result<(), Error>,
     {

@@ -23,6 +23,7 @@ impl HttpRequestHandler for Handler {
                 let whom = client.addr();
                 writeln!(client, "hello {} on port {}", whom.ip(), whom.port())?;
             }
+            "/panic" => panic!("can do!"),
             other => {
                 client.set_response(404, "Not Found")?;
                 writeln!(client, "I don't recognise the url {}\n", other)?;
@@ -36,7 +37,7 @@ impl HttpRequestHandler for Handler {
         match client.path().as_str() {
             "/save" => match client.body_parser()? {
                 BodyParser::Form(mut form) => {
-                    form.all(|mut entry| {
+                    form.for_each(|mut entry| {
                         info!(
                             "form entry named {:?} of type {:?}",
                             entry.name(),

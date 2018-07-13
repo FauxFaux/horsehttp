@@ -73,7 +73,7 @@ where
 
     info!("server listening on port {}", port);
 
-    let mut open_connections = Arc::new(semaphore::Semaphore::new(4));
+    let open_connections = Arc::new(semaphore::Semaphore::new(4));
 
     loop {
         let (stream, addr) = listen.accept()?;
@@ -121,7 +121,8 @@ fn handle(
     if !client.response_sent() {
         if let Err(e) = status {
             error!("{}: returning 500 for: {}", client.addr(), e);
-            client.unsafe_dirty_write_all(b"HTTP/1.{} 500 Internal Server Error\r\nConnection: close\r\n\r\nerr: internal\r\n")?;
+            client.set_response(500, "Internal Server Error")?;
+            client.write_all(b"err: internal")?;
         } else {
             client.send_response()?;
             info!(
