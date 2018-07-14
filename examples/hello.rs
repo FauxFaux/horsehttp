@@ -71,5 +71,11 @@ fn main() -> Result<(), Error> {
     pretty_env_logger::formatted_builder()?
         .filter_level(log::LevelFilter::Info)
         .init();
-    horsehttp::serve(1337, |_| Handler {})
+    horsehttp::serve_forever(
+        |_| Handler {},
+        &horsehttp::Configuration {
+            port: 1337,
+            ..Default::default()
+        },
+    )
 }

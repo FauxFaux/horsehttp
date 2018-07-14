@@ -9,6 +9,7 @@ extern crate log;
 extern crate mime;
 extern crate multipart;
 extern crate net2;
+extern crate num_cpus;
 extern crate result;
 
 mod client;
@@ -21,6 +22,7 @@ use std::panic;
 use std::sync::Arc;
 use std::thread;
 
+use cast::i32;
 use failure::Error;
 
 pub use client::BodyParser;
@@ -61,19 +63,35 @@ pub trait HttpRequestHandler: Send + panic::UnwindSafe {
     }
 }
 
-pub fn serve<F, H>(port: u16, mut handler: F) -> Result<(), Error>
+pub struct Configuration {
+    pub port: u16,
+    pub max_workers: usize,
+    pub backlog: usize,
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Configuration {
+            port: 8080,
+            backlog: 64,
+            max_workers: num_cpus::get() * 4,
+        }
+    }
+}
+
+pub fn serve_forever<F, H>(mut handler: F, config: &Configuration) -> Result<(), Error>
 where
     F: FnMut(&net::SocketAddr) -> H,
     H: HttpRequestHandler + panic::UnwindSafe + 'static,
 {
     let listen = net2::TcpBuilder::new_v4()?
         .reuse_address(true)?
-        .bind(net::SocketAddr::from(([127, 0, 0, 1], port)))?
-        .listen(64)?;
+        .bind(net::SocketAddr::from(([127, 0, 0, 1], config.port)))?
+        .listen(i32(config.backlog)?)?;
 
-    info!("server listening on port {}", port);
+    info!("server listening on port {}", config.port);
 
-    let open_connections = Arc::new(semaphore::Semaphore::new(4));
+    let open_connections = Arc::new(semaphore::Semaphore::new(config.max_workers));
 
     loop {
         let (stream, addr) = listen.accept()?;
